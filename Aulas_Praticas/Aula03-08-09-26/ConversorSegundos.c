@@ -1,3 +1,8 @@
+/* 
+Introdução a Programação - Aula 3 
+Rafael Andrade Câmara, 08/09/2026, 26.2.4022    
+*/
+
 #include <stdio.h>
 #include <math.h>
 // lembrar do -lm no final por causa da biblioteca math.h
