@@ -1,0 +1,17 @@
+# Executaveis gerados pela compilacao
+Aulas_Praticas/Aula02-02-09-26/ola
+Aulas_Praticas/Aula02-02-09-26/output/ola
+Aulas_Praticas/Aula03-08-09-26/VelocidadeMedia
+Aulas_Teoricas/Aula_T-05_Exemplos/DivisaoBasica
+Aulas_Teoricas/Aula_T-05_Exemplos/Equacao
+Aulas_Teoricas/Aula_T-06_Exemplos/Aleatorio
+Aulas_Teoricas/Aula_T-06_Exemplos/Hipotenusa
+Aulas_Teoricas/Aula_T-06_Exemplos/LadosTriangulo
+JogoDosBloquinhos/main
+TreinosSolo/fibonacci
+
+# Arquivos intermediarios e saidas de compilacao
+*.o
+*.out
+*.exe
+*.stackdump
