@@ -4,6 +4,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <termios.h>
+#include <unistd.h>
+#include <fcntl.h>
+
+char LerTecla(void);
+int MoverBarra(int direcao, int Display[60][120]);
+// para o compilador nao implicar com a funcao de mover a barra, que esta declarada depois do main
 
 int AnimacaoCarregamento(int segundos){
     int i = 0;
@@ -24,28 +31,26 @@ int AnimacaoCarregamento(int segundos){
 //Desenhar os blocos na tela
 int DesenharBlocos(int MapaBlocos[20][40], int Display[60][120], int i, int j){
 
-    if (MapaBlocos[i][j] == 1){
-        if (Display[i*3-1][j*3-1] == 1){ // Bloco esquedro cima
-            printf("%s", "⣏⣉");
-        } else if (Display[i*3-1][j*3] == 1){ // Bloco cima
-            printf("%s", "⣏⣉");
-        } else if (Display[i*3-1][j*3+1] == 1){ // bloco cima direito 
-            printf("%s", "⣉⣹");
-        } else if (Display[i][j-1] == 1){ // bloco esquerdo
-            printf("%s", "⡧⠤");
-        } else if (Display[i][j] == 2){ // bloco meio
-            printf("%s", "⡤⠼");
-        } else if (Display[i][j+1] == 1){ // bloco direito
-            printf("%s", "⠤⢼");
-        }else if (Display[i+1][j-1] == 1){ // bloco baixo esquerdo
-            printf("%s", "⣗⣒");
-        }else if (Display[i+1][j] == 1){ // bloco baixo
-            printf("%s", "⣓⣲");
-        }else if (Display[i+1][j+1] == 1){ // bloco baixo direito
-            printf("%s", "⣒⣺");
-        } else {
-            printf("%s", "⣿⣿");
-        }
+    if (Display[i-1][j+1] == 2){ // Bloco esquedro cima
+        printf("%s", "⣏⣉");
+    } else if (Display[i-1][j] == 2){ // Bloco cima
+        printf("%s", "⣏⣉");
+    } else if (Display[i-1][j-1] == 2){ // bloco cima direito 
+        printf("%s", "⣉⣹");
+    } else if (Display[i][j+1] == 2){ // bloco esquerdo
+        printf("%s", "⡧⠤");
+    } else if (Display[i][j] == 2){ // bloco meio
+        printf("%s", "⡤⠼");
+    } else if (Display[i][j-1] == 2){ // bloco direito
+        printf("%s", "⠤⢼");
+    }else if (Display[i+1][j+1] == 2){ // bloco baixo esquerdo
+        printf("%s", "⣗⣒");
+    }else if (Display[i+1][j] == 2){ // bloco baixo
+        printf("%s", "⣓⣲");
+    }else if (Display[i+1][j-1] == 2){ // bloco baixo direito
+        printf("%s", "⣒⣺");
+    } else {
+        printf("%s", "⣿⣿");
     }
     return 0;
 }
@@ -55,32 +60,54 @@ int GerarTela(int MapaBlocos[20][40], int Display[60][120]){
     int TelaGerada = 0;
 
     while (TelaGerada == 0){
-        system("clear");
-        //AnimacaoCarregamento(5); //testes
-        system("clear");
+        printf("\033[H");
 
         // Limite superior ajustado para 19 - mudado para 180
         for(int i = 59; i >= 0; i--){
             // Limite lateral ajustado para 40 - mudado para 360
             for(int j = 0; j < 119; j++){
-                printf("%d", Display[i][j]);
+                //printf("%d", Display[i][j]);
                 if(j == 0 || j == 118){
                     printf("%s", "⣗⣺");
                 } 
                 else if(i == 0 || i == 59){
                     printf("%s", "⣏⣏");
                 }
-                else if(MapaBlocos[i / 3][j / 3] == 1){
-                    DesenharBlocos(MapaBlocos, Display, i / 3, j / 3);// Chama a função para desenhar os blocos
+                else if(Display[i][j] == 1 || Display[i][j] == 2){
+                    DesenharBlocos(MapaBlocos, Display, i, j);// Chama a função para desenhar os blocos
                 } 
+                else if(Display[i][j] == 3){
+                    printf("%s", "⣤⣤");
+                }
                 else{
                     printf("  "); // Espaço vazio
                 }
             }
             printf("\n");
         }
+         // Lê a tecla pressionada
+        char tecla = LerTecla();
+        int direcao = 0;
 
-        TelaGerada = 1;
+        if (tecla == 'a') {
+            // Move barra para esquerda
+            direcao = -1;
+            MoverBarra(direcao, Display);
+        } else if (tecla == 'd') {
+            // Move barra para direita
+            direcao = 1;
+            MoverBarra(direcao, Display);
+        } else if (tecla == 'p') {
+            // Sai do jogo
+            printf("Saindo do jogo...\n");
+            sleep(2);
+            system("clear");
+            exit(0);
+            TelaGerada = 1;
+        }
+
+        fflush(stdout);
+        usleep(30000);
     }
 
     return 0;
@@ -99,7 +126,15 @@ int Preencher(int fase, int MapaBlocos[20][40], int Display[60][120]){
                             Display[(i * 3) + k][(j * 3) + l] = 1;
                         }
                     }
-                    Display[(i * 3)][(j * 3)] = 2; // Bloco central em vermelho
+                    Display[(i * 3 + 1)][(j * 3 + 1)] = 2; // Bloco central em vermelho
+                } else if (i == 1 && (j == 19 || j == 20)){
+                    MapaBlocos[i][j] = 3;
+                    // 2. RENDERIZADOR 3x3
+                    for (int k = 0; k < 3; k++){
+                        for (int l = 0; l < 3; l++){
+                            Display[(i * 3) + k][(j * 3) + l] = 3;
+                        }
+                    }
                 } else {
                     MapaBlocos[i][j] = 0;
                 }
@@ -153,6 +188,79 @@ int GerarMenu(){
         }
     }
     return escolha;
+}
+
+// Função que lê o teclado sem pausar o jogo
+char LerTecla() {
+    struct termios oldt, newt;
+    char ch = 0;
+    int oldf;
+
+    // 1. Salva as configurações atuais do terminal
+    tcgetattr(STDIN_FILENO, &oldt);
+    newt = oldt;
+    
+    // 2. Desativa a espera pelo 'Enter' (ICANON) e o visual da tecla (ECHO)
+    newt.c_lflag &= ~(ICANON | ECHO);
+    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+    
+    // 3. Torna a leitura "não-bloqueante" (se não tiver tecla, ele passa direto)
+    oldf = fcntl(STDIN_FILENO, F_GETFL, 0);
+    fcntl(STDIN_FILENO, F_SETFL, oldf | O_NONBLOCK);
+
+    // 4. Tenta capturar a tecla
+    ch = getchar();
+
+    // 5. Restaura o terminal ao normal imediatamente para não bugar o Linux
+    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+    fcntl(STDIN_FILENO, F_SETFL, oldf);
+
+    if (ch == EOF) {
+        return '\0'; // Retorna vazio se nenhuma tecla foi apertada
+    }
+    return ch;
+}
+
+int MoverBarra(int direcao, int Display[60][120]){
+    int menorLinha = 60;
+    int maiorLinha = -1;
+    int menorColuna = 120;
+    int maiorColuna = -1;
+
+    for(int i = 0; i < 60; i++){
+        for(int j = 0; j < 120; j++){
+            if(Display[i][j] == 3){
+                if(i < menorLinha) menorLinha = i;
+                if(i > maiorLinha) maiorLinha = i;
+                if(j < menorColuna) menorColuna = j;
+                if(j > maiorColuna) maiorColuna = j;
+            }
+        }
+    }
+
+    if(maiorLinha == -1 || direcao == 0){
+        return 0;
+    }
+
+    int deslocamento = direcao * 3;
+    if(menorColuna + deslocamento < 1 || maiorColuna + deslocamento > 117){
+        return 0;
+    }
+
+    for(int i = menorLinha; i <= maiorLinha; i++){
+        for(int j = menorColuna; j <= maiorColuna; j++){
+            if(Display[i][j] == 3){
+                Display[i][j] = 0;
+            }
+        }
+    }
+
+    for(int i = menorLinha; i <= maiorLinha; i++){
+        for(int j = menorColuna; j <= maiorColuna; j++){
+            Display[i][j + deslocamento] = 3;
+        }
+    }
+    return 0;
 }
 
 int main() {
