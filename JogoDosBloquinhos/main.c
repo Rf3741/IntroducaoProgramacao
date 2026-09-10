@@ -9,8 +9,12 @@
 #include <fcntl.h>
 
 char LerTecla(void);
-int MoverBarra(int direcao, int Display[60][120]);
-int MoverBola(int Display[60][120], int *bolaI, int *bolaJ, int *velocidadeI, int *velocidadeJ);
+void RestaurarTeclado(void);
+int MoverBarra(int direcao, int Display[60][240]);
+int MoverBola(int Display[60][240], int *iBola, int *jBola, int *iVelocidade, int *jVelocidade);
+int TemBlocos(int Display[60][240]);
+struct termios TerminalOriginal;
+int TecladoConfigurado = 0;
 // para o compilador nao implicar com a funcao de mover a barra, que esta declarada depois do main
 
 int AnimacaoCarregamento(int segundos){
@@ -30,56 +34,76 @@ int AnimacaoCarregamento(int segundos){
 }
 
 //Desenhar os blocos na tela
-int DesenharBlocos(int MapaBlocos[20][40], int Display[60][120], int i, int j){
+int DesenharBlocos(int Display[60][240], int i, int j){
+    int linha = i % 3;
+    int coluna = j % 6;
 
-    if (Display[i-1][j+1] == 20){ // Bloco esquedro cima
-        printf("%s", "⣏⣉");
-    } else if (Display[i-1][j] == 20){ // Bloco cima
-        printf("%s", "⣏⣉");
-    } else if (Display[i-1][j-1] == 20){ // bloco cima direito 
-        printf("%s", "⣉⣹");
-    } else if (Display[i][j+1] == 20){ // bloco esquerdo
-        printf("%s", "⡧⠤");
-    } else if (Display[i][j] == 20){ // bloco meio
-        printf("%s", "⡤⠼");
-    } else if (Display[i][j-1] == 20){ // bloco direito
-        printf("%s", "⠤⢼");
-    }else if (Display[i+1][j+1] == 20){ // bloco baixo esquerdo
-        printf("%s", "⣗⣒");
-    }else if (Display[i+1][j] == 20){ // bloco baixo
-        printf("%s", "⣓⣲");
-    }else if (Display[i+1][j-1] == 20){ // bloco baixo direito
-        printf("%s", "⣒⣺");
+    if (linha == 0){
+        if (coluna == 0){
+            printf("⣏");
+        } else if (coluna == 5){
+            printf("⣹");
+        } else {
+            printf("⣉");
+        }
+    } else if (linha == 1){
+        if (coluna == 0){
+            printf("⡧");
+        } else if (coluna == 1){
+            printf("⠤");
+        } else if (coluna == 2){
+            printf("⡤");
+        } else if (coluna == 3){
+            printf("⠼");
+        } else if (coluna == 4){
+            printf("⠤");
+        } else {
+            printf("⢼");
+        }
     } else {
-        printf("%s", "⣿⣿");
+        if (coluna == 0){
+            printf("⣗");
+        } else if (coluna == 1){
+            printf("⣒");
+        } else if (coluna == 2){
+            printf("⣓");
+        } else if (coluna == 3){
+            printf("⣲");
+        } else if (coluna == 4){
+            printf("⣒");
+        } else {
+            printf("⣺");
+        }
     }
     return 0;
 }
 
-int DesenharBarra(int Display[60][120], int i, int j){
+int DesenharBarra(int Display[60][240], int i, int j){
     int esquerda = (j == 0 || Display[i][j - 1] != 3);
-    int direita = (j == 119 || Display[i][j + 1] != 3);
+    int direita = (j == 239 || Display[i][j + 1] != 3);
 
     if (esquerda && direita){
-        printf("%s", "⣏⣹");
+        printf("⣏");
     } else if (esquerda){
-        printf("%s", "⣏⣉");
+        printf("⣏");
     } else if (direita){
-        printf("%s", "⣉⣹");
+        printf("⣹");
     } else {
-        printf("%s", "⣉⣉");
+        printf("⣉");
     }
     return 0;
 }
 
 int DesenharBola(void){
-    printf("%s", "⣿⣿");
+    printf("⣿");
     return 0;
 }
 
 // Matriz alterada para 20x40
-int GerarTela(int MapaBlocos[20][40], int Display[60][120], int *bolaI, int *bolaJ, int *velocidadeI, int *velocidadeJ){
+int GerarTela(int MapaBlocos[20][40], int Display[60][240], int *iBola, int *jBola, int *iVelocidade, int *jVelocidade){
     int TelaGerada = 0;
+
+    printf("\033[?7l");
 
     while (TelaGerada == 0){
         printf("\033[H");
@@ -88,16 +112,15 @@ int GerarTela(int MapaBlocos[20][40], int Display[60][120], int *bolaI, int *bol
         for(int i = 59; i >= 0; i--){
             printf("\033[2K"); // Limpa a linha atual
             // Limite lateral ajustado para 40 - mudado para 360
-            for(int j = 0; j < 119; j++){
-                //printf("%d", Display[i][j]);
-                if(j == 0 || j == 118){
-                    printf("%s", "⣗⣺");
+            for(int j = 0; j < 240; j++){
+                if(j == 0 || j == 239){
+                    printf("⣗");
                 } 
                 else if(i == 0 || i == 59){
-                    printf("%s", "⣏⣏");
+                    printf("⣏");
                 }
                 else if(Display[i][j] != 0 && Display[i][j] != 3 && Display[i][j] != 4){
-                    DesenharBlocos(MapaBlocos, Display, i, j);// Chama a função para desenhar os blocos
+                    DesenharBlocos(Display, i, j);
                 } 
                 else if(Display[i][j] == 3){
                     DesenharBarra(Display, i, j);
@@ -106,7 +129,7 @@ int GerarTela(int MapaBlocos[20][40], int Display[60][120], int *bolaI, int *bol
                     DesenharBola();
                 }
                 else{
-                    printf("  "); // Espaço vazio
+                    printf(" "); // Espaço vazio
                 }
             }
             printf("\n");
@@ -125,6 +148,8 @@ int GerarTela(int MapaBlocos[20][40], int Display[60][120], int *bolaI, int *bol
             MoverBarra(direcao, Display);
         } else if (tecla == 'p') {
             // Sai do jogo
+            RestaurarTeclado();
+            printf("\033[?7h");
             printf("Saindo do jogo...\n");
             sleep(2);
             system("clear");
@@ -132,35 +157,46 @@ int GerarTela(int MapaBlocos[20][40], int Display[60][120], int *bolaI, int *bol
             TelaGerada = 1;
         }
 
-        MoverBola(Display, bolaI, bolaJ, velocidadeI, velocidadeJ);
+        MoverBola(Display, iBola, jBola, iVelocidade, jVelocidade);
+
+        if(!TemBlocos(Display)){
+            RestaurarTeclado();
+            printf("\033[?7h");
+            printf("\033[2J\033[H");
+            printf("VOCE GANHOU!\n");
+            fflush(stdout);
+            sleep(3);
+            printf("\033[2J\033[H");
+            return 1;
+        }
 
         fflush(stdout);
-        usleep(60000);
+        usleep(30000);
     }
 
     return 0;
 }
 
 // Matriz alterada para 20x40
-int Preencher(int fase, int MapaBlocos[20][40], int Display[60][120]){
+int Preencher(int fase, int MapaBlocos[20][40], int Display[60][240]){
     if (fase == 1){
         for(int i = 0; i < 20; i++){
             for(int j = 0; j < 40; j++){
                 if((i == 16 && j == 19) || (i == 16 && j == 20) || (i == 17 && j == 19) || (i == 17 && j == 20)){
                     MapaBlocos[i][j] = 1;
-                    // 2. RENDERIZADOR 3x3
+                    // Cada bloco ocupa 3x6 caracteres Braille.
                     for (int k = 0; k < 3; k++){
-                        for (int l = 0; l < 3; l++){
-                            Display[(i * 3) + k][(j * 3) + l] = 1;
+                        for (int l = 0; l < 6; l++){
+                            Display[(i * 3) + k][(j * 6) + l] = 1;
                         }
                     }
-                    Display[(i * 3 + 1)][(j * 3 + 1)] = 20; // Centro do bloco
+                    Display[(i * 3 + 1)][(j * 6 + 3)] = 20; // Centro do bloco
                 } else if (i == 2 && (j == 19 || j == 20)){
                     MapaBlocos[i][j] = 3;
                     // Barra com duas linhas de altura
                     for (int k = 0; k < 2; k++){
-                        for (int l = 0; l < 3; l++){
-                            Display[(i * 3) + k][(j * 3) + l] = 3;
+                        for (int l = 0; l < 6; l++){
+                            Display[(i * 3) + k][(j * 6) + l] = 3;
                         }
                     }
                 } else {
@@ -171,18 +207,18 @@ int Preencher(int fase, int MapaBlocos[20][40], int Display[60][120]){
 
         // Aumenta a barra em um caractere visual de cada lado.
         for (int k = 0; k < 2; k++){
-            Display[(2 * 3) + k][(19 * 3) - 1] = 3;
-            Display[(2 * 3) + k][(20 * 3) + 3] = 3;
+            Display[(2 * 3) + k][(19 * 6) - 1] = 3;
+            Display[(2 * 3) + k][(20 * 6) + 6] = 3;
         }
     }
 
-    int bolaI = 14 * 3 + 1;
-    int bolaJ = 19 * 3 + 1;
-    int velocidadeI = -1;
-    int velocidadeJ = 0;
-    Display[bolaI][bolaJ] = 4;
-    GerarTela(MapaBlocos, Display, &bolaI, &bolaJ, &velocidadeI, &velocidadeJ);
-    return 0;
+    int iBola = 12 * 3 + 1;
+    int jBola = 19 * 6 + 3;
+    int iVelocidade = -1;
+    int jVelocidade = 0;
+    Display[iBola][jBola] = 4;
+    Display[iBola][jBola + 1] = 4;
+    return GerarTela(MapaBlocos, Display, &iBola, &jBola, &iVelocidade, &jVelocidade);
 }
 
 int GerarMenu(){
@@ -232,41 +268,47 @@ int GerarMenu(){
 
 // Função que lê o teclado sem pausar o jogo
 char LerTecla() {
-    struct termios oldt, newt;
     char ch = 0;
-    int oldf;
+    if (!TecladoConfigurado){
+        struct termios novoTerminal;
+        tcgetattr(STDIN_FILENO, &TerminalOriginal);
+        novoTerminal = TerminalOriginal;
+        novoTerminal.c_lflag &= ~(ICANON | ECHO);
+        tcsetattr(STDIN_FILENO, TCSANOW, &novoTerminal);
+        fcntl(STDIN_FILENO, F_SETFL, O_NONBLOCK);
+        TecladoConfigurado = 1;
+    }
 
-    // 1. Salva as configurações atuais do terminal
-    tcgetattr(STDIN_FILENO, &oldt);
-    newt = oldt;
-    
-    // 2. Desativa a espera pelo 'Enter' (ICANON) e o visual da tecla (ECHO)
-    newt.c_lflag &= ~(ICANON | ECHO);
-    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
-    
-    // 3. Torna a leitura "não-bloqueante" (se não tiver tecla, ele passa direto)
-    oldf = fcntl(STDIN_FILENO, F_GETFL, 0);
-    fcntl(STDIN_FILENO, F_SETFL, oldf | O_NONBLOCK);
-
-    // 4. Tenta capturar a tecla
-    ch = getchar();
-
-    // 5. Restaura o terminal ao normal imediatamente para não bugar o Linux
-    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
-    fcntl(STDIN_FILENO, F_SETFL, oldf);
-
-    if (ch == EOF) {
-        return '\0'; // Retorna vazio se nenhuma tecla foi apertada
+    if (read(STDIN_FILENO, &ch, 1) != 1){
+        return '\0';
     }
     return ch;
 }
 
-int QuebrarBloco(int Display[60][120], int i, int j){
+void RestaurarTeclado(void){
+    if (TecladoConfigurado){
+        tcsetattr(STDIN_FILENO, TCSANOW, &TerminalOriginal);
+        TecladoConfigurado = 0;
+    }
+}
+
+int TemBlocos(int Display[60][240]){
+    for(int i = 0; i < 60; i++){
+        for(int j = 0; j < 240; j++){
+            if(Display[i][j] != 0 && Display[i][j] != 3 && Display[i][j] != 4){
+                return 1;
+            }
+        }
+    }
+    return 0;
+}
+
+int QuebrarBloco(int Display[60][240], int i, int j){
     int inicioI = (i / 3) * 3;
-    int inicioJ = (j / 3) * 3;
+    int inicioJ = (j / 6) * 6;
 
     for(int blocoI = inicioI; blocoI < inicioI + 3; blocoI++){
-        for(int blocoJ = inicioJ; blocoJ < inicioJ + 3; blocoJ++){
+        for(int blocoJ = inicioJ; blocoJ < inicioJ + 6; blocoJ++){
             if(Display[blocoI][blocoJ] != 3 && Display[blocoI][blocoJ] != 4){
                 Display[blocoI][blocoJ] = 0;
             }
@@ -275,26 +317,40 @@ int QuebrarBloco(int Display[60][120], int i, int j){
     return 0;
 }
 
-int MoverBola(int Display[60][120], int *bolaI, int *bolaJ, int *velocidadeI, int *velocidadeJ){
-    int proximaI = *bolaI + *velocidadeI;
-    int proximaJ = *bolaJ + *velocidadeJ;
+int MoverBola(int Display[60][240], int *iBola, int *jBola, int *iVelocidade, int *jVelocidade){
+    static int contador = 0;
+    contador++;
+    if(contador < 3){
+        return 0;
+    }
+    contador = 0;
 
-    if(proximaI <= 1 || proximaI >= 58){
-        *velocidadeI *= -1;
-        proximaI = *bolaI + *velocidadeI;
+    int iProximo = *iBola + *iVelocidade;
+    int jProximo = *jBola + *jVelocidade;
+
+    if(iProximo <= 1 || iProximo >= 58){
+        *iVelocidade *= -1;
+        iProximo = *iBola + *iVelocidade;
     }
 
-    if(proximaJ <= 1 || proximaJ >= 118){
-        *velocidadeJ *= -1;
-        proximaJ = *bolaJ + *velocidadeJ;
+    if(jProximo <= 1 || jProximo >= 237){
+        *jVelocidade *= -1;
+        jProximo = *jBola + *jVelocidade;
     }
 
-    if(Display[proximaI][proximaJ] == 3 && *velocidadeI < 0){
-        int menorColuna = 120;
+    int bateuBarra = 0;
+    for(int j = jProximo; j <= jProximo + 1; j++){
+        if(Display[iProximo][j] == 3){
+            bateuBarra = 1;
+        }
+    }
+
+    if(bateuBarra && *iVelocidade < 0){
+        int menorColuna = 240;
         int maiorColuna = -1;
 
         for(int i = 0; i < 60; i++){
-            for(int j = 0; j < 120; j++){
+            for(int j = 0; j < 240; j++){
                 if(Display[i][j] == 3){
                     if(j < menorColuna) menorColuna = j;
                     if(j > maiorColuna) maiorColuna = j;
@@ -303,46 +359,64 @@ int MoverBola(int Display[60][120], int *bolaI, int *bolaJ, int *velocidadeI, in
         }
 
         int centroBarra = (menorColuna + maiorColuna) / 2;
-        int distanciaDoCentro = proximaJ - centroBarra;
+        int pontoDeContato = jProximo;
+        int distanciaDoCentro = pontoDeContato - centroBarra;
 
-        *velocidadeI = 1;
-        if(distanciaDoCentro <= -2){
-            *velocidadeJ = -1;
-        } else if(distanciaDoCentro >= 2){
-            *velocidadeJ = 1;
-        } else {
-            *velocidadeJ = 0;
+        *iVelocidade = 1;
+        if(distanciaDoCentro <= -4){
+            *jVelocidade = -1;
+        } else if(distanciaDoCentro >= 4){
+            *jVelocidade = 1;
         }
 
-        proximaI = *bolaI + *velocidadeI;
-        proximaJ = *bolaJ + *velocidadeJ;
-    } else if(Display[proximaI][proximaJ] != 0 &&
-              Display[proximaI][proximaJ] != 3 &&
-              Display[proximaI][proximaJ] != 4){
-        QuebrarBloco(Display, proximaI, proximaJ);
-        *velocidadeI *= -1;
-        proximaI = *bolaI + *velocidadeI;
+        iProximo = *iBola + *iVelocidade;
+        jProximo = *jBola + *jVelocidade;
+    } else {
+        int bateuBloco = 0;
+        for(int j = jProximo; j <= jProximo + 1; j++){
+            if(Display[iProximo][j] != 0 && Display[iProximo][j] != 3 && Display[iProximo][j] != 4){
+                bateuBloco = 1;
+            }
+        }
+
+        if(bateuBloco){
+            QuebrarBloco(Display, iProximo, jProximo);
+            *iVelocidade *= -1;
+            iProximo = *iBola + *iVelocidade;
+        }
     }
 
-    if(Display[proximaI][proximaJ] != 0){
-        return 0;
+    if(iProximo < 1) iProximo = 1;
+    if(iProximo > 58) iProximo = 58;
+    if(jProximo < 1) jProximo = 1;
+    if(jProximo > 237) jProximo = 237;
+
+    for(int j = jProximo; j <= jProximo + 1; j++){
+        if(Display[iProximo][j] != 0 && Display[iProximo][j] != 4){
+            return 0;
+        }
     }
 
-    Display[*bolaI][*bolaJ] = 0;
-    *bolaI = proximaI;
-    *bolaJ = proximaJ;
-    Display[*bolaI][*bolaJ] = 4;
+    for(int j = *jBola; j <= *jBola + 1; j++){
+        Display[*iBola][j] = 0;
+    }
+
+    *iBola = iProximo;
+    *jBola = jProximo;
+    for(int j = *jBola; j <= *jBola + 1; j++){
+        Display[*iBola][j] = 4;
+    }
     return 0;
 }
 
-int MoverBarra(int direcao, int Display[60][120]){
+int MoverBarra(int direcao, int Display[60][240]){
     int menorLinha = 60;
     int maiorLinha = -1;
-    int menorColuna = 120;
+    int menorColuna = 240;
     int maiorColuna = -1;
 
     for(int i = 0; i < 60; i++){
-        for(int j = 0; j < 120; j++){
+        for(int j = 0; j < 240; j++){
             if(Display[i][j] == 3){
                 if(i < menorLinha) menorLinha = i;
                 if(i > maiorLinha) maiorLinha = i;
@@ -356,8 +430,8 @@ int MoverBarra(int direcao, int Display[60][120]){
         return 0;
     }
 
-    int deslocamento = direcao * 3;
-    if(menorColuna + deslocamento < 1 || maiorColuna + deslocamento > 117){
+    int deslocamento = direcao * 6;
+    if(menorColuna + deslocamento < 1 || maiorColuna + deslocamento > 238){
         return 0;
     }
 
@@ -383,17 +457,17 @@ int main() {
     srand((unsigned) time(NULL));
 
     // Declarações de Variáveis:
-    int escolha = 0;
-    escolha = GerarMenu();
-    
     int fase = 1;
-    // Matriz declarada com 20x40
-    int MapaBlocos[20][40] = {0}; // matriz de armazenamento das posições das entidades do jogo.
-    int Display[60][120] = {0}; // matriz de estados para formar o display no terminal.
+    int escolha;
 
-    if (escolha == 1){
-        Preencher(fase, MapaBlocos, Display);
-    }
+    do {
+        escolha = GerarMenu();
+        if (escolha == 1){
+            int MapaBlocos[20][40] = {0};
+            int Display[60][240] = {0};
+            Preencher(fase, MapaBlocos, Display);
+        }
+    } while (escolha != 3);
 
     return 0;
 }

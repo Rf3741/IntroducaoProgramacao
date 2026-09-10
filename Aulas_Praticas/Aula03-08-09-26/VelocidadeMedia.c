@@ -3,25 +3,27 @@ Introdução a Programação - Aula 3
 Rafael Andrade Câmara, 08/09/2026, 26.2.4022    
 */
 
-#include <stdio.h> // biblioteca padrão de entrada e saída
-#include <stdlib.h> // biblioteca padrão de funções utilitárias
+#include <stdio.h>
+#include <math.h>
+// gcc -o hipotenusa hipotenusa.c -lm
+// lembrar do -lm no final por causa da biblioteca math.h
 
-int main() {
+int main () {
+    // declaracao de variaveis
+    int a, b, c, d, x = 0;
 
-    // declaracão de variáveis
-    float distancia, tempo, velocidadeMedia;
+    // entrada de dados
+    //printf("Na seguinte conta: x = a³ x (b+c)/d\n");
+    printf("Entre com os valores de a, b, c, d:\n");
+    scanf("%d %d %d %d", &a, &b, &c, &d);
+    
+    // processamento
+    x = pow(a, 3) * (b+c)/d;
 
-    // coleta de dados
-    printf("Digite a distância percorrida (em kilometros): "); // solicita distancia percorrida
-    scanf("%f", &distancia); // le a distancia informada
-    printf("Digite o tempo gasto (em horas): "); // solicita tempo gasto
-    scanf("%f", &tempo); // le o tempo informado
+    // exibicao do resultado
+    //printf("a = %d, b = %d, c = %d, d = %d\n", a, b, c, d); 
+    // tive que pesqusar como imprimia um float sem casa decimais e ta ai
+    printf("x =%d\n", x);
 
-    // calculo da velocidade média
-    velocidadeMedia = distancia / tempo; // calcula a velocidade média
-
-    // exibição do resultado
-    printf("A velocidade média é: %.2f km/h\n", velocidadeMedia); // exibe a velocidade média calculada
-
-    return 0; // finaliza o programa
+    return 0;
 }
