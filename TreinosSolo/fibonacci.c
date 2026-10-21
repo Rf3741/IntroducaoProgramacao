@@ -14,7 +14,6 @@ int fibonacci(int num){
 
 int main()
 {
-    int fib;
     int num = 10;
     
     for(int i = 1; i <= num; i++){

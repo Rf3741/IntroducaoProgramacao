@@ -5,19 +5,31 @@
 #include <string.h>
 #include <time.h>
 #include <termios.h>
-#include <unistd.h>
 #include <fcntl.h>
+
+#define ALTURA 60
+#define LARGURA 240
+#define MAPA_LINHAS 20
+#define MAPA_COLUNAS 40
+#define BLOCO_ALTURA 3
+#define BLOCO_LARGURA 6
+
+#define VAZIO 0
+#define BLOCO 1
+#define BARRA 3
+#define BOLA 4
+#define BLOCO_CENTRO 20
 
 char LerTecla(void);
 void RestaurarTeclado(void);
-int MoverBarra(int direcao, int Display[60][240]);
-int MoverBola(int Display[60][240], int *iBola, int *jBola, int *iVelocidade, int *jVelocidade);
-int TemBlocos(int Display[60][240]);
+void MoverBarra(int direcao, int Display[ALTURA][LARGURA]);
+void MoverBola(int Display[ALTURA][LARGURA], int *iBola, int *jBola, int *iVelocidade, int *jVelocidade);
+int TemBlocos(int Display[ALTURA][LARGURA]);
 struct termios TerminalOriginal;
 int TecladoConfigurado = 0;
 // para o compilador nao implicar com a funcao de mover a barra, que esta declarada depois do main
 
-int AnimacaoCarregamento(int segundos){
+void AnimacaoCarregamento(int segundos){
     int i = 0;
     while (i < segundos){
         system("clear");
@@ -30,18 +42,17 @@ int AnimacaoCarregamento(int segundos){
         printf("\n");
         i++;
     }
-    return 0;
 }
 
 //Desenhar os blocos na tela
-int DesenharBlocos(int Display[60][240], int i, int j){
-    int linha = i % 3;
-    int coluna = j % 6;
+void DesenharBlocos(int Display[ALTURA][LARGURA], int i, int j){
+    int linha = i % BLOCO_ALTURA;
+    int coluna = j % BLOCO_LARGURA;
 
     if (linha == 0){
         if (coluna == 0){
             printf("⣏");
-        } else if (coluna == 5){
+        } else if (coluna == BLOCO_LARGURA - 1){
             printf("⣹");
         } else {
             printf("⣉");
@@ -75,32 +86,26 @@ int DesenharBlocos(int Display[60][240], int i, int j){
             printf("⣺");
         }
     }
-    return 0;
 }
 
-int DesenharBarra(int Display[60][240], int i, int j){
-    int esquerda = (j == 0 || Display[i][j - 1] != 3);
-    int direita = (j == 239 || Display[i][j + 1] != 3);
+void DesenharBarra(int Display[ALTURA][LARGURA], int i, int j){
+    int esquerda = (j == 0 || Display[i][j - 1] != BARRA);
+    int direita = (j == LARGURA - 1 || Display[i][j + 1] != BARRA);
 
-    if (esquerda && direita){
-        printf("⣏");
-    } else if (esquerda){
+    if (esquerda){
         printf("⣏");
     } else if (direita){
         printf("⣹");
     } else {
         printf("⣉");
     }
-    return 0;
 }
 
-int DesenharBola(void){
+void DesenharBola(void){
     printf("⣿");
-    return 0;
 }
 
-// Matriz alterada para 20x40
-int GerarTela(int MapaBlocos[20][40], int Display[60][240], int *iBola, int *jBola, int *iVelocidade, int *jVelocidade){
+int GerarTela(int MapaBlocos[MAPA_LINHAS][MAPA_COLUNAS], int Display[ALTURA][LARGURA], int *iBola, int *jBola, int *iVelocidade, int *jVelocidade){
     int TelaGerada = 0;
 
     printf("\033[?7l");
@@ -108,24 +113,22 @@ int GerarTela(int MapaBlocos[20][40], int Display[60][240], int *iBola, int *jBo
     while (TelaGerada == 0){
         printf("\033[H");
 
-        // Limite superior ajustado para 19 - mudado para 180
-        for(int i = 59; i >= 0; i--){
+        for(int i = ALTURA - 1; i >= 0; i--){
             printf("\033[2K"); // Limpa a linha atual
-            // Limite lateral ajustado para 40 - mudado para 360
-            for(int j = 0; j < 240; j++){
-                if(j == 0 || j == 239){
+            for(int j = 0; j < LARGURA; j++){
+                if(j == 0 || j == LARGURA - 1){
                     printf("⣗");
                 } 
-                else if(i == 0 || i == 59){
+                else if(i == 0 || i == ALTURA - 1){
                     printf("⣏");
                 }
-                else if(Display[i][j] != 0 && Display[i][j] != 3 && Display[i][j] != 4){
+                else if(Display[i][j] != VAZIO && Display[i][j] != BARRA && Display[i][j] != BOLA){
                     DesenharBlocos(Display, i, j);
                 } 
-                else if(Display[i][j] == 3){
+                else if(Display[i][j] == BARRA){
                     DesenharBarra(Display, i, j);
                 }
-                else if(Display[i][j] == 4){
+                else if(Display[i][j] == BOLA){
                     DesenharBola();
                 }
                 else{
@@ -154,7 +157,6 @@ int GerarTela(int MapaBlocos[20][40], int Display[60][240], int *iBola, int *jBo
             sleep(2);
             system("clear");
             exit(0);
-            TelaGerada = 1;
         }
 
         MoverBola(Display, iBola, jBola, iVelocidade, jVelocidade);
@@ -177,47 +179,46 @@ int GerarTela(int MapaBlocos[20][40], int Display[60][240], int *iBola, int *jBo
     return 0;
 }
 
-// Matriz alterada para 20x40
-int Preencher(int fase, int MapaBlocos[20][40], int Display[60][240]){
+int Preencher(int fase, int MapaBlocos[MAPA_LINHAS][MAPA_COLUNAS], int Display[ALTURA][LARGURA]){
     if (fase == 1){
-        for(int i = 0; i < 20; i++){
-            for(int j = 0; j < 40; j++){
+        for(int i = 0; i < MAPA_LINHAS; i++){
+            for(int j = 0; j < MAPA_COLUNAS; j++){
                 if((i == 16 && j == 19) || (i == 16 && j == 20) || (i == 17 && j == 19) || (i == 17 && j == 20)){
-                    MapaBlocos[i][j] = 1;
+                    MapaBlocos[i][j] = BLOCO;
                     // Cada bloco ocupa 3x6 caracteres Braille.
-                    for (int k = 0; k < 3; k++){
-                        for (int l = 0; l < 6; l++){
-                            Display[(i * 3) + k][(j * 6) + l] = 1;
+                    for (int k = 0; k < BLOCO_ALTURA; k++){
+                        for (int l = 0; l < BLOCO_LARGURA; l++){
+                            Display[(i * BLOCO_ALTURA) + k][(j * BLOCO_LARGURA) + l] = BLOCO;
                         }
                     }
-                    Display[(i * 3 + 1)][(j * 6 + 3)] = 20; // Centro do bloco
+                    Display[(i * BLOCO_ALTURA + 1)][(j * BLOCO_LARGURA + 3)] = BLOCO_CENTRO; // Centro do bloco
                 } else if (i == 2 && (j == 19 || j == 20)){
-                    MapaBlocos[i][j] = 3;
+                    MapaBlocos[i][j] = BARRA;
                     // Barra com duas linhas de altura
                     for (int k = 0; k < 2; k++){
-                        for (int l = 0; l < 6; l++){
-                            Display[(i * 3) + k][(j * 6) + l] = 3;
+                        for (int l = 0; l < BLOCO_LARGURA; l++){
+                            Display[(i * BLOCO_ALTURA) + k][(j * BLOCO_LARGURA) + l] = BARRA;
                         }
                     }
                 } else {
-                    MapaBlocos[i][j] = 0;
+                    MapaBlocos[i][j] = VAZIO;
                 }
             }
         }
 
         // Aumenta a barra em um caractere visual de cada lado.
         for (int k = 0; k < 2; k++){
-            Display[(2 * 3) + k][(19 * 6) - 1] = 3;
-            Display[(2 * 3) + k][(20 * 6) + 6] = 3;
+            Display[(2 * BLOCO_ALTURA) + k][(19 * BLOCO_LARGURA) - 1] = BARRA;
+            Display[(2 * BLOCO_ALTURA) + k][(20 * BLOCO_LARGURA) + BLOCO_LARGURA] = BARRA;
         }
     }
 
-    int iBola = 12 * 3 + 1;
-    int jBola = 19 * 6 + 3;
+    int iBola = 12 * BLOCO_ALTURA + 1;
+    int jBola = 19 * BLOCO_LARGURA + 3;
     int iVelocidade = -1;
     int jVelocidade = 0;
-    Display[iBola][jBola] = 4;
-    Display[iBola][jBola + 1] = 4;
+    Display[iBola][jBola] = BOLA;
+    Display[iBola][jBola + 1] = BOLA;
     return GerarTela(MapaBlocos, Display, &iBola, &jBola, &iVelocidade, &jVelocidade);
 }
 
@@ -292,10 +293,10 @@ void RestaurarTeclado(void){
     }
 }
 
-int TemBlocos(int Display[60][240]){
-    for(int i = 0; i < 60; i++){
-        for(int j = 0; j < 240; j++){
-            if(Display[i][j] != 0 && Display[i][j] != 3 && Display[i][j] != 4){
+int TemBlocos(int Display[ALTURA][LARGURA]){
+    for(int i = 0; i < ALTURA; i++){
+        for(int j = 0; j < LARGURA; j++){
+            if(Display[i][j] != VAZIO && Display[i][j] != BARRA && Display[i][j] != BOLA){
                 return 1;
             }
         }
@@ -303,55 +304,54 @@ int TemBlocos(int Display[60][240]){
     return 0;
 }
 
-int QuebrarBloco(int Display[60][240], int i, int j){
-    int inicioI = (i / 3) * 3;
-    int inicioJ = (j / 6) * 6;
+void QuebrarBloco(int Display[ALTURA][LARGURA], int i, int j){
+    int inicioI = (i / BLOCO_ALTURA) * BLOCO_ALTURA;
+    int inicioJ = (j / BLOCO_LARGURA) * BLOCO_LARGURA;
 
-    for(int blocoI = inicioI; blocoI < inicioI + 3; blocoI++){
-        for(int blocoJ = inicioJ; blocoJ < inicioJ + 6; blocoJ++){
-            if(Display[blocoI][blocoJ] != 3 && Display[blocoI][blocoJ] != 4){
-                Display[blocoI][blocoJ] = 0;
+    for(int blocoI = inicioI; blocoI < inicioI + BLOCO_ALTURA; blocoI++){
+        for(int blocoJ = inicioJ; blocoJ < inicioJ + BLOCO_LARGURA; blocoJ++){
+            if(Display[blocoI][blocoJ] != BARRA && Display[blocoI][blocoJ] != BOLA){
+                Display[blocoI][blocoJ] = VAZIO;
             }
         }
     }
-    return 0;
 }
 
-int MoverBola(int Display[60][240], int *iBola, int *jBola, int *iVelocidade, int *jVelocidade){
+void MoverBola(int Display[ALTURA][LARGURA], int *iBola, int *jBola, int *iVelocidade, int *jVelocidade){
     static int contador = 0;
     contador++;
     if(contador < 3){
-        return 0;
+        return;
     }
     contador = 0;
 
     int iProximo = *iBola + *iVelocidade;
     int jProximo = *jBola + *jVelocidade;
 
-    if(iProximo <= 1 || iProximo >= 58){
+    if(iProximo <= 1 || iProximo >= ALTURA - 2){
         *iVelocidade *= -1;
         iProximo = *iBola + *iVelocidade;
     }
 
-    if(jProximo <= 1 || jProximo >= 237){
+    if(jProximo <= 1 || jProximo >= LARGURA - 3){
         *jVelocidade *= -1;
         jProximo = *jBola + *jVelocidade;
     }
 
     int bateuBarra = 0;
     for(int j = jProximo; j <= jProximo + 1; j++){
-        if(Display[iProximo][j] == 3){
+        if(Display[iProximo][j] == BARRA){
             bateuBarra = 1;
         }
     }
 
     if(bateuBarra && *iVelocidade < 0){
-        int menorColuna = 240;
+        int menorColuna = LARGURA;
         int maiorColuna = -1;
 
-        for(int i = 0; i < 60; i++){
-            for(int j = 0; j < 240; j++){
-                if(Display[i][j] == 3){
+        for(int i = 0; i < ALTURA; i++){
+            for(int j = 0; j < LARGURA; j++){
+                if(Display[i][j] == BARRA){
                     if(j < menorColuna) menorColuna = j;
                     if(j > maiorColuna) maiorColuna = j;
                 }
@@ -374,7 +374,7 @@ int MoverBola(int Display[60][240], int *iBola, int *jBola, int *iVelocidade, in
     } else {
         int bateuBloco = 0;
         for(int j = jProximo; j <= jProximo + 1; j++){
-            if(Display[iProximo][j] != 0 && Display[iProximo][j] != 3 && Display[iProximo][j] != 4){
+            if(Display[iProximo][j] != VAZIO && Display[iProximo][j] != BARRA && Display[iProximo][j] != BOLA){
                 bateuBloco = 1;
             }
         }
@@ -387,37 +387,36 @@ int MoverBola(int Display[60][240], int *iBola, int *jBola, int *iVelocidade, in
     }
 
     if(iProximo < 1) iProximo = 1;
-    if(iProximo > 58) iProximo = 58;
+    if(iProximo > ALTURA - 2) iProximo = ALTURA - 2;
     if(jProximo < 1) jProximo = 1;
-    if(jProximo > 237) jProximo = 237;
+    if(jProximo > LARGURA - 3) jProximo = LARGURA - 3;
 
     for(int j = jProximo; j <= jProximo + 1; j++){
-        if(Display[iProximo][j] != 0 && Display[iProximo][j] != 4){
-            return 0;
+        if(Display[iProximo][j] != VAZIO && Display[iProximo][j] != BOLA){
+            return;
         }
     }
 
     for(int j = *jBola; j <= *jBola + 1; j++){
-        Display[*iBola][j] = 0;
+        Display[*iBola][j] = VAZIO;
     }
 
     *iBola = iProximo;
     *jBola = jProximo;
     for(int j = *jBola; j <= *jBola + 1; j++){
-        Display[*iBola][j] = 4;
+        Display[*iBola][j] = BOLA;
     }
-    return 0;
 }
 
-int MoverBarra(int direcao, int Display[60][240]){
-    int menorLinha = 60;
+void MoverBarra(int direcao, int Display[ALTURA][LARGURA]){
+    int menorLinha = ALTURA;
     int maiorLinha = -1;
-    int menorColuna = 240;
+    int menorColuna = LARGURA;
     int maiorColuna = -1;
 
-    for(int i = 0; i < 60; i++){
-        for(int j = 0; j < 240; j++){
-            if(Display[i][j] == 3){
+    for(int i = 0; i < ALTURA; i++){
+        for(int j = 0; j < LARGURA; j++){
+            if(Display[i][j] == BARRA){
                 if(i < menorLinha) menorLinha = i;
                 if(i > maiorLinha) maiorLinha = i;
                 if(j < menorColuna) menorColuna = j;
@@ -427,28 +426,27 @@ int MoverBarra(int direcao, int Display[60][240]){
     }
 
     if(maiorLinha == -1 || direcao == 0){
-        return 0;
+        return;
     }
 
-    int deslocamento = direcao * 6;
-    if(menorColuna + deslocamento < 1 || maiorColuna + deslocamento > 238){
-        return 0;
+    int deslocamento = direcao * BLOCO_LARGURA;
+    if(menorColuna + deslocamento < 1 || maiorColuna + deslocamento > LARGURA - 2){
+        return;
     }
 
     for(int i = menorLinha; i <= maiorLinha; i++){
         for(int j = menorColuna; j <= maiorColuna; j++){
-            if(Display[i][j] == 3){
-                Display[i][j] = 0;
+            if(Display[i][j] == BARRA){
+                Display[i][j] = VAZIO;
             }
         }
     }
 
     for(int i = menorLinha; i <= maiorLinha; i++){
         for(int j = menorColuna; j <= maiorColuna; j++){
-            Display[i][j + deslocamento] = 3;
+            Display[i][j + deslocamento] = BARRA;
         }
     }
-    return 0;
 }
 
 int main() {
@@ -463,8 +461,8 @@ int main() {
     do {
         escolha = GerarMenu();
         if (escolha == 1){
-            int MapaBlocos[20][40] = {0};
-            int Display[60][240] = {0};
+            int MapaBlocos[MAPA_LINHAS][MAPA_COLUNAS] = {0};
+            int Display[ALTURA][LARGURA] = {0};
             Preencher(fase, MapaBlocos, Display);
         }
     } while (escolha != 3);
